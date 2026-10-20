@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kasvikirjasto 🌿</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f2f7ef;
+            color: #263b2b;
+        }
+
+        header {
+            background: #2f6845;
+            color: white;
+            text-align: center;
+            padding: 35px 20px;
+        }
+
+        header h1 {
+            margin: 0 0 10px;
+            font-size: 2.2rem;
+        }
+
+        header p {
+            margin: 0;
+            color: #e1f0df;
+        }
+
+        main {
+            max-width: 1100px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+
+        .toolbar {
+            margin-bottom: 24px;
+        }
+
+        #search {
+            width: 100%;
+            padding: 14px;
+            border: 1px solid #c6d8c5;
+            border-radius: 10px;
+            font-size: 16px;
+            background: white;
+        }
+
+        #plant-count {
+            color: #56705a;
+            margin: 15px 0;
+        }
+
+        #plant-list {
+            display: grid;
+            grid-template-columns: repeat(
+                auto-fit, minmax(240px, 1fr)
+            );
+            gap: 20px;
+        }
+
+        .plant-card {
+            background: white;
+            padding: 22px;
+            border-radius: 14px;
+            border: 1px solid #e0eadd;
+            box-shadow: 0 4px 12px rgba(40, 70, 45, 0.07);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .plant-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 18px rgba(40, 70, 45, 0.12);
+        }
+
+        .plant-icon {
+            font-size: 36px;
+        }
+
+        .plant-card h2 {
+            color: #2f6845;
+            margin: 12px 0 6px;
+        }
+
+        .species {
+            color: #738275;
+            font-style: italic;
+            margin-top: 0;
+        }
+
+        .plant-card p {
+            line-height: 1.5;
+            overflow-wrap: anywhere;
+        }
+
+        .label {
+            font-weight: bold;
+            color: #365b3d;
+        }
+
+        .message {
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            line-height: 1.5;
+        }
+
+        @media (max-width: 500px) {
+            header h1 {
+                font-size: 1.8rem;
+            }
+
+            main {
+                padding: 0 14px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1>🌿 Kasvikirjasto</h1>
+        <p>Koti ei ole koti ilman kasveja <3</p>
+    </header>
+
+    <main>
+        <div class="toolbar">
+            <input
+                type="search"
+                id="search"
+                placeholder="🔍 Etsi kasvia nimellä tai lajilla..."
+                aria-label="Etsi kasvia"
+            >
+            <p id="plant-count">Ladataan kasveja...</p>
+        </div>
+
+        <section id="plant-list" aria-live="polite">
+            <p class="message">Haetaan kasveja tietokannasta...</p>
+        </section>
+    </main>
+
+    <script>
+        const plantList = document.getElementById('plant-list');
+        const plantCount = document.getElementById('plant-count');
+        const searchInput = document.getElementById('search');
+
+        let plants = [];
+
+        async function loadPlants() {
+            try {
+                const response = await fetch('/plants');
+
+                if (!response.ok) {
+                    throw new Error('Palvelin palautti virheen.');
+                }
+
+                plants = await response.json();
+                renderPlants();
+            } catch (error) {
+                plantCount.textContent = 'Kasveja ei voitu ladata.';
+                plantList.replaceChildren();
+
+                const message = document.createElement('p');
+                message.className = 'message';
+                message.textContent =
+                    'Yhteys palvelimeen epäonnistui. ' +
+                    'Tarkista, että Node.js-palvelin on käynnissä.';
+                plantList.appendChild(message);
+
+                console.error('Kasvien lataus epäonnistui:', error);
+            }
+        }
+
+        function renderPlants() {
+            const query = searchInput.value
+                .trim()
+                .toLocaleLowerCase('fi');
+
+            const filteredPlants = plants.filter(plant =>
+                plant.name.toLocaleLowerCase('fi').includes(query) ||
+                plant.species.toLocaleLowerCase('fi').includes(query)
+            );
+
+            plantCount.textContent =
+                `Näytetään ${filteredPlants.length} / ${plants.length} kasvia`;
+
+            plantList.replaceChildren();
+
+            if (filteredPlants.length === 0) {
+                const message = document.createElement('p');
+                message.className = 'message';
+                message.textContent = 'Kasveja ei löytynyt tällä haulla.';
+                plantList.appendChild(message);
+                return;
+            }
+
+            filteredPlants.forEach(plant => {
+                const card = document.createElement('article');
+                card.className = 'plant-card';
+
+                const icon = document.createElement('div');
+                icon.className = 'plant-icon';
+                icon.textContent = '🪴';
+
+                const title = document.createElement('h2');
+                title.textContent = plant.name;
+
+                const species = document.createElement('p');
+                species.className = 'species';
+                species.textContent = plant.species;
+
+                const location = document.createElement('p');
+                location.appendChild(createLabel('📍 Sijainti: '));
+                location.append(
+                    plant.location || 'Ei määritelty'
+                );
+
+                const watering = document.createElement('p');
+                watering.appendChild(createLabel('💧 Kastelu: '));
+                watering.append(
+                    plant.watering_frequency || 'Ei määritelty'
+                );
+
+                const notes = document.createElement('p');
+                notes.appendChild(createLabel('📝 Huomiot: '));
+                notes.append(plant.notes || 'Ei huomioita');
+
+                card.append(
+                    icon,
+                    title,
+                    species,
+                    location,
+                    watering,
+                    notes
+                );
+
+                plantList.appendChild(card);
+            });
+        }
+
+        function createLabel(text) {
+            const label = document.createElement('span');
+            label.className = 'label';
+            label.textContent = text;
+            return label;
+        }
+
+        searchInput.addEventListener('input', renderPlants);
+
+        loadPlants();
+    </script>
+</body>
+</html>
